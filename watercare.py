@@ -2,12 +2,22 @@ import rpa as r
 import sys, os
 from time import gmtime, strftime
 from datetime import datetime
+import time
+# import MySQLdb  Windows is trash
+import mysql.connector
+
 
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 runningLogFile = os.path.join(dir_path, 'log.running.log')
 errorLogFile = os.path.join(dir_path, 'log.error.log')
 configFile = os.path.join(dir_path, 'run.config')
+pdfFile = os.path.join(dir_path, 'statement.pdf')
+pdfFolder = os.path.join(dir_path, 'pdf')
+
+if not os.path.exists(pdfFolder):
+    os.makedirs(pdfFolder)
+
 if not os.path.exists(runningLogFile):
     with open(runningLogFile, 'w'): 
         pass
@@ -16,12 +26,12 @@ if not os.path.exists(errorLogFile):
         pass
 
 def runningLog(logStr):
-    s = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " -- " + logStr 
+    s = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " -- " + str(logStr) + "\n"
     with open(runningLogFile, "a") as myfile:
         myfile.write(s)
 
 def errorLog(logStr):
-    s = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " -- " + logStr
+    s = datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " -- " + str(logStr) + "\n"
     with open(errorLogFile, "a") as myfile:
         myfile.write(s)
 
@@ -61,32 +71,118 @@ except Exception as e:
 
 def login(robot):
     robot.url('https://www.watercare.co.nz/MyAccount/Accounts')
-    txt = robot.read('page')
+    while not r.present('body'):
+        time.sleep(1)
+    txt = robot.read('body')
+    if 'As you have 3 or more accounts' in txt:
+        runningLog('Already logged in')
+        return True
     if 'Your session has timed out' in txt:
         robot.url('https://www.watercare.co.nz/sign-out')
+        while not r.present('body'):
+            time.sleep(1)
         robot.url('https://www.watercare.co.nz/MyAccount/Accounts')
+        while not r.present('body'):
+            time.sleep(1)
+    time.sleep(2)
     txt = robot.read('//*[@id="api"]')
     if not txt:
         runningLog('Login failed: id="api" not found in MyAccount/Accounts')
     elif 'Sign in with your existing account' in txt:
         robot.type('//*[@id="logonIdentifier"]', watercarelogin)
         robot.type('//*[@id="password"]', watercarepassword+'[enter]')
-        txt = robot.read('page')
+        while not r.present('body'):
+            time.sleep(1)
+        time.sleep(2)
+        txt = robot.read('body')
         if 'As you have 3 or more accounts' in txt:
             runningLog('Login succeed')
         else:
             runningLog('Login failed: "As you have 3 or more accounts" not found after enter password')
     else:
         runningLog('Login failed: "Sign in with your existing account" not found in api')
+    return False
 
-while True:
-    try:
-        r.init()
-        login(r)
+try:
+    conn = mysql.connector.connect(host= dbhost,
+                user=dbuser,
+                passwd=dbpass,
+                db=dbname)
+    readingCur = conn.cursor()
+    readingCur.execute("SELECT accountnumber FROM watercare where bccode is not null")
+    accountNumberRows = readingCur.fetchall()
+
+    # r.init(visual_automation = True) 
+    r.init()
+    while True:
+        try:
+            loginSucceed = False
+            while not loginSucceed:
+                loginSucceed = login(r)
+
+            account1boxid = 'p_lt_WebPartZone3_MasterPageWebPartZone_pageplaceholder_p_lt_WebPartZone2_SectionContentWidgetZone_AccountsOverview_wcAccountSearch_accountNumberPart1'
+            account2boxid = 'p_lt_WebPartZone3_MasterPageWebPartZone_pageplaceholder_p_lt_WebPartZone2_SectionContentWidgetZone_AccountsOverview_wcAccountSearch_accountNumberPart2'
+            searchbuttonid = 'p_lt_WebPartZone3_MasterPageWebPartZone_pageplaceholder_p_lt_WebPartZone2_SectionContentWidgetZone_AccountsOverview_wcAccountSearch_accountSearchBtn'
+            account1boxid_hist = 'p_lt_WebPartZone3_MasterPageWebPartZone_pageplaceholder_p_lt_WebPartZone2_SectionContentWidgetZone_BillingHistorySelector_BillingHistoryAccountSearch_accountNumberPart1'
+            account2boxid_hist = 'p_lt_WebPartZone3_MasterPageWebPartZone_pageplaceholder_p_lt_WebPartZone2_SectionContentWidgetZone_BillingHistorySelector_BillingHistoryAccountSearch_accountNumberPart2'
+            searchbuttonid_hist = 'p_lt_WebPartZone3_MasterPageWebPartZone_pageplaceholder_p_lt_WebPartZone2_SectionContentWidgetZone_BillingHistorySelector_BillingHistoryAccountSearch_accountSearchBtn'
+
+            i = 0
+            for row in accountNumberRows:
+                i+=1
+                if i == 1:
+                    account1box = account1boxid
+                    account2box = account2boxid
+                    searchbutton = searchbuttonid
+                else:
+                    account1box = account1boxid_hist
+                    account2box = account2boxid_hist
+                    searchbutton = searchbuttonid_hist
+
+                try:
+                    while True:
+                        acc = row[0].split('-')
+
+                        #enter account number
+                        r.type('//*[@id="'+account1box+'"]', "[delete][delete][delete][delete][delete][delete][delete]")
+                        r.type('//*[@id="'+account1box+'"]', acc[0])
+                        r.type('//*[@id="'+account2box+'"]', "[delete][delete]")
+                        r.type('//*[@id="'+account2box+'"]', acc[1])
+                        
+                        #click search
+                        r.click('//*[@id="'+searchbutton+'"]')
+                        while r.present('//*[@class="busy-load-container"'):
+                            time.sleep(1)
+                        time.sleep(2)
+                        #click last bill
+                        r.click('Latest bill')
+                        time.sleep(0.5)
+                        while r.present('//*[@class="busy-load-container"'):
+                            time.sleep(5)
+                        time.sleep(0.5)
+                        txt = r.read('body')
+                        if 'As you have 3 or more accounts' not in txt:
+                            i = 0
+                            login(r)
+                            continue
+
+                        #click download
+                        r.click('//td/a/span')
+                        targetfile = os.path.join(dir_path, pdfFolder, row[0] +'-'+ datetime.now().strftime("%Y%m%d") + '.pdf')
+                        if os.path.exists(targetfile):
+                            os.remove(targetfile)
+                        os.rename(pdfFile, targetfile)
+                        time.sleep(5)
+                        break
 
 
-    except Exception as e:
-        errorLog(e)
+                except Exception as e:
+                    errorLog(e)
+        except Exception as e:
+            errorLog(e)
+        time.sleep(60*60*8)
+except Exception as e:
+    errorLog(e)
 
 
 

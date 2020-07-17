@@ -1,3 +1,9 @@
 
 run.config
 rpa_python.log
+log.error.log
+log.error.log
+log.running.log
+*.pdf
+log.error.log
+log.running.log
