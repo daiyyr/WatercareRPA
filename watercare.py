@@ -84,7 +84,7 @@ def login(robot):
         robot.url('https://www.watercare.co.nz/MyAccount/Accounts')
         while not r.present('body'):
             time.sleep(1)
-    time.sleep(2)
+    time.sleep(1)
     txt = robot.read('//*[@id="api"]')
     if not txt:
         runningLog('Login failed: id="api" not found in MyAccount/Accounts')
@@ -129,50 +129,57 @@ try:
 
             i = 0
             for row in accountNumberRows:
-                i+=1
-                if i == 1:
-                    account1box = account1boxid
-                    account2box = account2boxid
-                    searchbutton = searchbuttonid
-                else:
-                    account1box = account1boxid_hist
-                    account2box = account2boxid_hist
-                    searchbutton = searchbuttonid_hist
+                acc = row[0].split('-')
 
                 try:
                     while True:
-                        acc = row[0].split('-')
+                        i+=1
+                        if i == 1:
+                            account1box = account1boxid
+                            account2box = account2boxid
+                            searchbutton = searchbuttonid
+                        else:
+                            account1box = account1boxid_hist
+                            account2box = account2boxid_hist
+                            searchbutton = searchbuttonid_hist
+                        
 
                         #enter account number
-                        r.type('//*[@id="'+account1box+'"]', "[delete][delete][delete][delete][delete][delete][delete]")
+                        if not r.exist('//*[@id="'+account1box+'"]'):
+                            i+=1
+                            continue
+
+                        r.type('//*[@id="'+account1box+'"]', "[clear]")
                         r.type('//*[@id="'+account1box+'"]', acc[0])
-                        r.type('//*[@id="'+account2box+'"]', "[delete][delete]")
+                        r.type('//*[@id="'+account2box+'"]', "[clear]")
                         r.type('//*[@id="'+account2box+'"]', acc[1])
                         
                         #click search
                         r.click('//*[@id="'+searchbutton+'"]')
                         while r.present('//*[@class="busy-load-container"'):
-                            time.sleep(1)
+                            time.sleep(2)
                         time.sleep(2)
+
                         #click last bill
-                        r.click('Latest bill')
-                        time.sleep(0.5)
+                        if i == 1:
+                            r.click('Latest bill')
+                        time.sleep(1)
                         while r.present('//*[@class="busy-load-container"'):
-                            time.sleep(5)
-                        time.sleep(0.5)
+                            time.sleep(2)
+                        if i == 1:
+                            time.sleep(2)
                         txt = r.read('body')
                         if 'As you have 3 or more accounts' not in txt:
-                            i = 0
                             login(r)
                             continue
 
                         #click download
                         r.click('//td/a/span')
+                        time.sleep(5)
                         targetfile = os.path.join(dir_path, pdfFolder, row[0] +'-'+ datetime.now().strftime("%Y%m%d") + '.pdf')
                         if os.path.exists(targetfile):
                             os.remove(targetfile)
                         os.rename(pdfFile, targetfile)
-                        time.sleep(5)
                         break
 
 
@@ -184,13 +191,6 @@ try:
 except Exception as e:
     errorLog(e)
 
-
-
-r.click('//*[@id="gsr"]')
-r.type('//*[@name="q"]', 'decentralization[enter]')
-print(r.read('result-stats'))
-r.snap('page', 'results.png')
-r.close()
 
 
 
