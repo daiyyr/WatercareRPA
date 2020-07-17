@@ -109,7 +109,7 @@ try:
                 passwd=dbpass,
                 db=dbname)
     readingCur = conn.cursor()
-    readingCur.execute("SELECT accountnumber FROM watercare where bccode is not null")
+    readingCur.execute("SELECT accountnumber FROM useraccount where bccode is not null")
     accountNumberRows = readingCur.fetchall()
 
     # r.init(visual_automation = True) 
