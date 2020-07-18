@@ -44,6 +44,8 @@ try:
                 dbpass = line.replace('dbpass:','').replace('\n','').strip()
             elif 'dbname:' in line:
                 dbname = line.replace('dbname:','').replace('\n','').strip()
+            elif 'tablename:' in line:
+                tablename = line.replace('tablename:','').replace('\n','').strip()
             elif 'azure_account:' in line:
                 azure_account = line.replace('azure_account:','').replace('\n','').strip()
             elif 'azure_key:' in line:
@@ -111,7 +113,7 @@ try:
                 passwd=dbpass,
                 db=dbname)
     readingCur = conn.cursor()
-    readingCur.execute("SELECT accountnumber FROM useraccount where bccode is not null")
+    readingCur.execute("SELECT accountnumber FROM "+tablename+" where bccode is not null")
     accountNumberRows = readingCur.fetchall()
 
     # r.init(visual_automation = True) 
@@ -146,11 +148,22 @@ try:
                             searchbutton = searchbuttonid_hist
                         
 
-                        #enter account number
+                        #try 2 types of box id
+                        if not r.exist('//*[@id="'+account1box+'"]'):
+                            if account1box == account1boxid:
+                                account1box = account1boxid_hist
+                                account2box = account2boxid_hist
+                                searchbutton = searchbuttonid_hist
+                            elif account1box == account1boxid_hist:
+                                account1box = account1boxid
+                                account2box = account2boxid
+                                searchbutton = searchbuttonid
+
                         if not r.exist('//*[@id="'+account1box+'"]'):
                             i+=1
                             continue
-
+                        
+                        #enter account number
                         r.type('//*[@id="'+account1box+'"]', "[clear]")
                         r.type('//*[@id="'+account1box+'"]', acc[0])
                         r.type('//*[@id="'+account2box+'"]', "[clear]")
@@ -162,14 +175,20 @@ try:
                             r.wait(2)
                         r.wait(2)
 
+                        #account exist?
+                        txt = r.read('body')
+                        if "No accounts were found matching your search criteria" in txt:
+                            runningLog(row[0] + ': Account does not exist')
+                            break
+                            
                         #click last bill
-                        if i == 1:
+                        if r.present('Latest bill'):   #Billing history has no this button, download link displayed already
                             r.click('Latest bill')
-                        r.wait(1)
-                        while r.present('//*[@class="busy-load-container"'):
+                            r.wait(1)
+                            while r.present('//*[@class="busy-load-container"'):
+                                r.wait(2)
                             r.wait(2)
-                        if i == 1:
-                            r.wait(2)
+
                         txt = r.read('body')
                         if 'As you have 3 or more accounts' not in txt:
                             login(r)
@@ -177,6 +196,13 @@ try:
                             continue
 
                         #click download
+                        start = datetime.now()
+                        while not r.present('//td/a/span'):
+                            end = datetime.now()
+                            if (end-start).seconds > 10:
+                                break
+                            r.wait(0.5)
+
                         if not r.present('//td/a/span'):
                             retry += 1
                             if retry > 3:
