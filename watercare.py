@@ -15,9 +15,6 @@ configFile = os.path.join(dir_path, 'run.config')
 pdfFile = os.path.join(dir_path, 'statement.pdf')
 pdfFolder = os.path.join(dir_path, 'pdf')
 
-if not os.path.exists(pdfFolder):
-    os.makedirs(pdfFolder)
-
 if not os.path.exists(runningLogFile):
     with open(runningLogFile, 'w'): 
         pass
@@ -51,8 +48,8 @@ try:
                 azure_account = line.replace('azure_account:','').replace('\n','').strip()
             elif 'azure_key:' in line:
                 azure_key = line.replace('azure_key:','').replace('\n','').strip()
-            elif 'pdf_path:' in line:
-                directory = line.replace('pdf_path:','').replace('\n','').strip()
+            elif 'pdfFolder:' in line:
+                pdfFolder = line.replace('pdfFolder:','').replace('\n','').strip()
             elif 'pdf_2_path:' in line:
                 directory2 = line.replace('pdf_2_path:','').replace('\n','').strip()
             elif 'pdf_3_path:' in line:
@@ -70,40 +67,45 @@ except Exception as e:
     errorLog('Reading config file error: ' + e)
 
 def login(robot):
-    robot.url('https://www.watercare.co.nz/MyAccount/Accounts')
-    while not r.present('body'):
-        time.sleep(1)
-    txt = robot.read('body')
-    if 'As you have 3 or more accounts' in txt:
-        runningLog('Already logged in')
-        return True
-    if 'Your session has timed out' in txt:
-        robot.url('https://www.watercare.co.nz/sign-out')
-        while not r.present('body'):
-            time.sleep(1)
+    while True:
         robot.url('https://www.watercare.co.nz/MyAccount/Accounts')
-        while not r.present('body'):
-            time.sleep(1)
-    time.sleep(1)
-    txt = robot.read('//*[@id="api"]')
-    if not txt:
-        runningLog('Login failed: id="api" not found in MyAccount/Accounts')
-    elif 'Sign in with your existing account' in txt:
-        robot.type('//*[@id="logonIdentifier"]', watercarelogin)
-        robot.type('//*[@id="password"]', watercarepassword+'[enter]')
-        while not r.present('body'):
-            time.sleep(1)
-        time.sleep(2)
+        while not robot.present('body'):
+            robot.wait(1)
         txt = robot.read('body')
         if 'As you have 3 or more accounts' in txt:
-            runningLog('Login succeed')
+            runningLog('Already logged in')
+            return True
+        if 'Your session has timed out' in txt:
+            robot.url('https://www.watercare.co.nz/sign-out')
+            while not robot.present('body'):
+                robot.wait(1)
+            robot.url('https://www.watercare.co.nz/MyAccount/Accounts')
+            while not robot.present('body'):
+                robot.wait(1)
+        robot.wait(1)
+        txt = robot.read('//*[@id="api"]')
+        if not txt:
+            runningLog('Login failed: id="api" not found in MyAccount/Accounts')
+        elif 'Sign in with your existing account' in txt:
+            robot.type('//*[@id="logonIdentifier"]', watercarelogin)
+            robot.type('//*[@id="password"]', watercarepassword+'[enter]')
+            while not robot.present('body'):
+                robot.wait(1)
+            robot.wait(2)
+            txt = robot.read('body')
+            if 'As you have 3 or more accounts' in txt:
+                runningLog('Login succeed')
+                return True
+            else:
+                runningLog('Login failed: "As you have 3 or more accounts" not found after enter password')
         else:
-            runningLog('Login failed: "As you have 3 or more accounts" not found after enter password')
-    else:
-        runningLog('Login failed: "Sign in with your existing account" not found in api')
-    return False
+            runningLog('Login failed: "Sign in with your existing account" not found in api')
+
 
 try:
+    if not os.path.exists(pdfFolder):
+        os.makedirs(pdfFolder)
+
     conn = mysql.connector.connect(host= dbhost,
                 user=dbuser,
                 passwd=dbpass,
@@ -116,9 +118,7 @@ try:
     r.init()
     while True:
         try:
-            loginSucceed = False
-            while not loginSucceed:
-                loginSucceed = login(r)
+            login(r)
 
             account1boxid = 'p_lt_WebPartZone3_MasterPageWebPartZone_pageplaceholder_p_lt_WebPartZone2_SectionContentWidgetZone_AccountsOverview_wcAccountSearch_accountNumberPart1'
             account2boxid = 'p_lt_WebPartZone3_MasterPageWebPartZone_pageplaceholder_p_lt_WebPartZone2_SectionContentWidgetZone_AccountsOverview_wcAccountSearch_accountNumberPart2'
@@ -130,9 +130,11 @@ try:
             i = 0
             for row in accountNumberRows:
                 acc = row[0].split('-')
-
-                try:
-                    while True:
+                retry = 0
+                while True:
+                    try:
+                        if os.path.exists(pdfFile):
+                            os.remove(pdfFile)
                         i+=1
                         if i == 1:
                             account1box = account1boxid
@@ -157,37 +159,56 @@ try:
                         #click search
                         r.click('//*[@id="'+searchbutton+'"]')
                         while r.present('//*[@class="busy-load-container"'):
-                            time.sleep(2)
-                        time.sleep(2)
+                            r.wait(2)
+                        r.wait(2)
 
                         #click last bill
                         if i == 1:
                             r.click('Latest bill')
-                        time.sleep(1)
+                        r.wait(1)
                         while r.present('//*[@class="busy-load-container"'):
-                            time.sleep(2)
+                            r.wait(2)
                         if i == 1:
-                            time.sleep(2)
+                            r.wait(2)
                         txt = r.read('body')
                         if 'As you have 3 or more accounts' not in txt:
                             login(r)
+                            i = 0
                             continue
 
                         #click download
+                        if not r.present('//td/a/span'):
+                            retry += 1
+                            if retry > 3:
+                                runningLog(row[0] + ': Not found donwload link in 3 attempts' )
+                                break
+                            else:
+                                continue
                         r.click('//td/a/span')
-                        time.sleep(5)
-                        targetfile = os.path.join(dir_path, pdfFolder, row[0] +'-'+ datetime.now().strftime("%Y%m%d") + '.pdf')
+                        r.wait(1)
+                        targetfile = os.path.join(pdfFolder, row[0] +'-'+ datetime.now().strftime("%Y%m%d") + '.pdf')
                         if os.path.exists(targetfile):
                             os.remove(targetfile)
-                        os.rename(pdfFile, targetfile)
-                        break
+                        start = datetime.now()
+                        downloadSucceed = True
+                        while not os.path.exists(pdfFile):
+                            end = datetime.now()
+                            if (end-start).seconds > 60:
+                                downloadSucceed = False 
+                                break
+                            r.wait(1)
+                        if downloadSucceed:
+                            r.wait(1)
+                            os.rename(pdfFile, targetfile)
+                            break
+                        else:
+                            errorLog(row[0] + ': download failed')
 
-
-                except Exception as e:
-                    errorLog(e)
+                    except Exception as e:
+                        errorLog(row[0] + ': ' + str(e))
         except Exception as e:
             errorLog(e)
-        time.sleep(60*60*8)
+        r.wait(60*60*8)
 except Exception as e:
     errorLog(e)
 
