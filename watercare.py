@@ -199,7 +199,7 @@ try:
                         start = datetime.now()
                         while not r.present('//td/a/span'):
                             end = datetime.now()
-                            if (end-start).seconds > 10:
+                            if (end-start).seconds > 15:
                                 break
                             r.wait(0.5)
 
