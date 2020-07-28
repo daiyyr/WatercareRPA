@@ -5,6 +5,7 @@ from datetime import datetime
 import time
 # import MySQLdb  Windows is trash
 import mysql.connector
+import shutil
 
 
 
@@ -225,7 +226,7 @@ try:
                             r.wait(1)
                         if downloadSucceed:
                             r.wait(1)
-                            os.rename(pdfFile, targetfile)
+                            shutil.move(pdfFile, targetfile)
                             break
                         else:
                             errorLog(row[0] + ': download failed')
