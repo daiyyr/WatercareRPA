@@ -1,0 +1,19 @@
+2020-07-17 13:11:14 -- [WinError 2] The system cannot find the file specified: 'C:\\PythonScript\\rpa\\statement.pdf' -> 'C:\\PythonScript\\rpa\\pdf\\5422818-01-20200717.pdf'
+2020-07-17 13:39:29 -- name 'acc' is not defined
+2020-07-17 14:12:51 -- [WinError 2] The system cannot find the file specified: 'C:\\PythonScript\\rpa\\statement.pdf' -> 'C:\\PythonScript\\rpa\\pdf\\5422818-01-20200717.pdf'
+2020-07-17 14:22:56 -- [WinError 2] The system cannot find the file specified: 'C:\\PythonScript\\rpa\\statement.pdf' -> 'C:\\PythonScript\\rpa\\pdf\\1925279-01-20200717.pdf'
+2020-07-17 14:26:31 -- [WinError 2] The system cannot find the file specified: 'C:\\PythonScript\\rpa\\statement.pdf' -> 'C:\\PythonScript\\rpa\\pdf\\0878161-01-20200717.pdf'
+2020-07-17 14:30:44 -- [WinError 2] The system cannot find the file specified: 'C:\\PythonScript\\rpa\\statement.pdf' -> 'C:\\PythonScript\\rpa\\pdf\\5450334-01-20200717.pdf'
+2020-07-17 14:34:18 -- 1146 (42S02): Table 'watercare.useraccount' doesn't exist
+2020-07-17 14:34:27 -- 1146 (42S02): Table 'watercare.useraccount' doesn't exist
+2020-07-17 14:34:40 -- 1146 (42S02): Table 'watercare.useraccount' doesn't exist
+2020-07-18 08:53:14 -- can only concatenate str (not "FileNotFoundError") to str
+2020-07-18 09:13:11 -- module 'rpa' has no attribute 'sleep'
+2020-07-18 09:13:11 -- module 'rpa' has no attribute 'sleep'
+2020-07-18 09:18:53 -- module 'rpa' has no attribute 'sleep'
+2020-07-18 09:18:53 -- module 'rpa' has no attribute 'sleep'
+2020-07-18 10:32:16 -- [WinError 2] The system cannot find the file specified: 'C:\\PythonScript\\rpa\\statement.pdf'
+2020-07-18 11:55:09 -- 5422818-01: unsupported operand type(s) for -: 'builtin_function_or_method' and 'builtin_function_or_method'
+2020-07-18 12:42:37 -- 5422818-01: download failed
+2020-07-18 19:35:09 -- 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'nulland accountnumber='5452890-01'' at line 1
+2020-07-18 19:57:37 -- 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'nulland accountnumber='5452890-01'' at line 1

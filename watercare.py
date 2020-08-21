@@ -7,14 +7,14 @@ import time
 import mysql.connector
 import shutil
 
-
-
 dir_path = os.path.dirname(os.path.realpath(__file__))
 runningLogFile = os.path.join(dir_path, 'log.running.log')
 errorLogFile = os.path.join(dir_path, 'log.error.log')
 configFile = os.path.join(dir_path, 'run.config')
 pdfFile = os.path.join(dir_path, 'statement.pdf')
 pdfFolder = os.path.join(dir_path, 'pdf')
+messageFile = os.path.join(dir_path, 'monitor.message')
+previous = 'succeed'
 
 if not os.path.exists(runningLogFile):
     with open(runningLogFile, 'w'): 
@@ -65,6 +65,9 @@ try:
                 watercarelogin = line.replace('watercarelogin:','').replace('\n','').strip()
             elif 'watercarepassword:' in line:
                 watercarepassword = line.replace('watercarepassword:','').replace('\n','').strip()
+            elif 'messageFile:' in line:
+                messageFile0 = line.replace('messageFile:','').replace('\n','').strip()
+                messageFile = os.path.join(dir_path, messageFile0)
             line = fp.readline()
 except Exception as e:
     errorLog('Reading config file error: ' + e)
@@ -109,12 +112,35 @@ try:
     if not os.path.exists(pdfFolder):
         os.makedirs(pdfFolder)
 
+    counter = 623804
+    if not os.path.exists(messageFile):
+        with open(messageFile, 'w'): 
+            pass
+        with open(messageFile, "a") as myfile:
+            s = """counter=""" + counter + """
+bcid=
+bccode=
+account=
+invoicenumber=
+previous=
+"""
+            myfile.write(s)
+
+    else: # message file already exists
+        with open(messageFile) as fp:
+            line = fp.readline()
+            while line:
+                if 'counter=' in line:
+                    counter = int(line.replace('counter=','').replace('\n','').strip())                
+
+
+
     conn = mysql.connector.connect(host= dbhost,
                 user=dbuser,
                 passwd=dbpass,
                 db=dbname)
     readingCur = conn.cursor()
-    readingCur.execute("SELECT accountnumber FROM "+tablename+" where bccode is not null")
+    readingCur.execute("SELECT accountnumber,bccode,bcid FROM "+tablename+" where bccode is not null")
     accountNumberRows = readingCur.fetchall()
 
     # r.init(visual_automation = True) 
@@ -134,6 +160,19 @@ try:
             for row in accountNumberRows:
                 acc = row[0].split('-')
                 retry = 0
+
+                counter+=1
+                with open(messageFile, 'w') as filetowrite:
+                    s = """counter=""" + str(counter) + """
+bcid=""" + str(row[2]) + """
+bccode=""" + str(row[1]) + """
+account=""" + str(row[0]) + """
+invoicenumber=""" + str(row[0]) + "/" + datetime.now().strftime("%d%m%Y") + """
+previous=""" + str(previous)
+                    filetowrite.write(s)
+
+
+
                 while True:
                     try:
                         if os.path.exists(pdfFile):
@@ -207,6 +246,7 @@ try:
                         if not r.present('//td/a/span'):
                             retry += 1
                             if retry > 3:
+                                previous = 'fail'
                                 runningLog(row[0] + ': Not found donwload link in 3 attempts' )
                                 break
                             else:
@@ -227,6 +267,7 @@ try:
                         if downloadSucceed:
                             r.wait(1)
                             shutil.move(pdfFile, targetfile)
+                            previous = 'succeed'
                             break
                         else:
                             errorLog(row[0] + ': download failed')
@@ -234,6 +275,7 @@ try:
                     except Exception as e:
                         errorLog(row[0] + ': ' + str(e))
         except Exception as e:
+            previous = 'fail'
             errorLog(e)
         r.wait(60*60*8)
 except Exception as e:
