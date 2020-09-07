@@ -112,12 +112,12 @@ try:
     if not os.path.exists(pdfFolder):
         os.makedirs(pdfFolder)
 
-    counter = 623804
+    counter = 1074
     if not os.path.exists(messageFile):
         with open(messageFile, 'w'): 
             pass
         with open(messageFile, "a") as myfile:
-            s = """counter=""" + counter + """
+            s = """counter=""" + str(counter) + """
 bcid=
 bccode=
 account=
@@ -131,7 +131,9 @@ previous=
             line = fp.readline()
             while line:
                 if 'counter=' in line:
-                    counter = int(line.replace('counter=','').replace('\n','').strip())                
+                    # counter = int(line.replace('counter=','').replace('\n','').strip())
+                    break
+                line = fp.readline()
 
 
 
